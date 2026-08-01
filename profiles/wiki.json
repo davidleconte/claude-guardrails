@@ -1,0 +1,10 @@
+{
+  "//": "Intégrité du hub llm-wiki : liens morts, lacunes de provenance, péremption. Le check dérive un property graph du wiki (wiki-graph.py) et sort en code 1 s'il trouve un défaut d'intégrité — le moteur guardrails le rapporte alors en ADVISORY (jamais bloquant). Aucune règle `precheck` : l'intégrité d'un graphe ne s'exprime pas en motifs regex sur des fichiers. Aucun `session_review` : il s'imprimerait inconditionnellement (limite documentée du moteur) et ferait du bruit à chaque session ; `policy_drift` est silencieux quand la base est saine.",
+
+  "policy_drift": {
+    "check_cmd": "python3 wiki-graph.py . --check",
+    "requires_cmds": ["python3"],
+    "requires_files": ["wiki-graph.py", "wikis.json"],
+    "fix_hint": "python3 wiki-graph.py . --out .graph-out puis lire .graph-out/report.md — §2 liens morts, §3 lacunes de provenance, §4 péremption"
+  }
+}
