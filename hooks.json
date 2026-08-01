@@ -1,0 +1,37 @@
+{
+  "//": "Plugin-format wiring (auto-discovered at <plugin>/hooks/hooks.json). The $HOME-path equivalent for the settings.json-merge path lives in settings.snippet.json. All three hooks are advisory and non-blocking.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/precheck-gate.sh",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-review.sh",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/policy-drift.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

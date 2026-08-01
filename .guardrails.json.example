@@ -1,0 +1,5 @@
+{
+  "//": "Drop this at a repo root to opt in. Remove it -> hooks become silent no-ops.",
+  "profiles": ["quant"],
+  "scan_scope": "diff"
+}
