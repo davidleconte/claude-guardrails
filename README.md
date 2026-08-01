@@ -1,89 +1,67 @@
-# guardrails — cadre de garde-fous advisory, domaine-agnostique
+![statut](https://img.shields.io/badge/statut-actif-brightgreen)
+![tests](https://img.shields.io/badge/tests-21%2F21%20(H1--H9)-brightgreen)
+![version](https://img.shields.io/badge/version-0.1.0-blue)
+![licence](https://img.shields.io/badge/licence-MIT-lightgrey)
 
-Prototype généralisant les hooks de gouvernance quant (`tier1-gate` / `session-end-review`
-/ `tier-drift-audit`) en un moteur **piloté par profils déclaratifs** et **activé par
-contexte de dépôt**. Tous les hooks restent **advisory et non-bloquants** (`exit 0`) ;
-l'enforcement dur reste au push-time.
+# claude-guardrails — cadre de garde-fous advisory, domaine-agnostique
+
+> **Un moteur unique de gouvernance de session, piloté par des profils déclaratifs et activé par contexte de dépôt.**
+> Tous les hooks sont *advisory et non-bloquants* (`exit 0`) ; l'enforcement dur reste au push-time.
+
+**Auteur & mainteneur :** David Leconte — IBM Worldwide watsonx.data Tiger Team · <david.leconte1@ibm.com>
+**Statut :** prototype acté · **Version :** 0.1.0 · **Dernière revue :** 2026-08-01
+
+## Sommaire
+[Pourquoi](#pourquoi) · [Quickstart](#quickstart) · [Principe](#principe) · [Structure](#structure) · [Profils](#profils) · [Vérification](#vérification) · [Limites](#limites-assumées) · [Gouvernance](#gouvernance)
+
+## Pourquoi
+Les hooks quant d'origine mêlaient mécanisme, politique et déclencheur, et **sur-déclenchaient**
+(rappels hors contexte). Ce dépôt extrait le mécanisme en un moteur générique : une discipline =
+un profil JSON ; une activation = un marqueur de dépôt. Décision : `docs/adr/0003-generalized-guardrails.md`
+(dans `claude-automation-setup`).
+
+## Quickstart
+```bash
+bash test_guardrails.sh          # attendu : 21/21 (H1–H9), exit 0
+python3 engine/guardrails.py status   # liste les profils actifs du dépôt courant
+```
 
 ## Principe
-
-Trois couches séparées :
-
-- **Mécanisme** — `engine/guardrails.py` (Python 3, stdlib seule). Scanne, avertit, sort 0.
-- **Politique** — `profiles/<nom>.json` (données, pas de code). Ce qui est propre à un domaine.
-- **Activation** — un marqueur `.guardrails.json` à la racine d'un dépôt sélectionne les profils.
-  **Pas de marqueur → no-op silencieux.** C'est ce qui empêche la gouvernance de se déclencher
-  dans des dépôts sans rapport (le défaut corrigé par rapport aux hooks quant d'origine).
+Trois couches séparées : **mécanisme** (`engine/guardrails.py`, Python stdlib, `exit 0`),
+**politique** (`profiles/<nom>.json`, données), **activation** (`.guardrails.json` à la racine
+d'un dépôt ; **pas de marqueur → no-op silencieux** — le correctif du sur-déclenchement).
 
 ## Structure
-
 ```
-guardrails/
-  engine/guardrails.py        moteur générique (precheck | session-review | policy-drift | status)
-  hooks/precheck-gate.sh      PreToolUse/Bash  → engine precheck
-  hooks/session-review.sh     SessionEnd       → engine session-review
-  hooks/policy-drift.sh       SessionEnd       → engine policy-drift
-  profiles/quant.json         reproduit le comportement quant existant
-  profiles/secrets.json       2ᵉ profil (preuve de portabilité : scan de secrets pré-commit)
-  .guardrails.json            marqueur d'exemple (à déposer à la racine d'un dépôt)
-  hooks.json                  câblage format plugin (${CLAUDE_PLUGIN_ROOT})
-  settings.snippet.json       câblage fusion settings.json ($HOME)
-  test_guardrails.sh          harnais de preuve (H1–H7, 17 assertions)
+engine/guardrails.py     moteur (precheck | session-review | policy-drift | status)
+hooks/*.sh               câblage PreToolUse/Bash + SessionEnd
+profiles/quant.json      reproduit le comportement quant d'origine
+profiles/secrets.json    2e profil (preuve de portabilité)
+test_guardrails.sh       harnais de preuve (H1–H9, 21 assertions)
 ```
-
-## Installation
-
-1. Copier `guardrails/` où vous voulez (p. ex. `~/guardrails`).
-2. Fusionner `settings.snippet.json` dans `~/.claude/settings.json` (ajuster les chemins).
-   Le `precheck-gate` n'a **pas** de filtre `if` : le moteur matche le `trigger` de chaque
-   profil contre la commande réelle → il coexiste avec `rtk hook claude` et un éventuel
-   `tier1-gate` dans le même tableau `PreToolUse`/`Bash`.
-3. Dans chaque dépôt à gouverner, déposer un `.guardrails.json` :
-   ```json
-   { "profiles": ["quant"], "scan_scope": "diff" }
-   ```
-   `scan_scope` : `diff` (fichiers changés, défaut) | `repo` (tout l'arbre).
 
 ## Profils
-
-Un profil déclare jusqu'à trois blocs :
-
-- `precheck` — `trigger` (glob sur la commande, ex. `pytest*`, `git commit*`), `include`
-  (globs de fichiers), `exclude` (regex de chemins), `rules[]` = `{pattern, label, severity}`,
-  et un `scan_scope` optionnel (`repo` | `diff`) qui **prime sur le marqueur** — utile quand
-  une discipline doit balayer tout l'arbre (ex. quant : `repo`, comme le `tier1-gate` d'origine).
-- `session_review` — `when` (rappel) + `dispatch[]` = `{agent, prompt}` (non-spawning : imprime).
-- `policy_drift` — `check_cmd` (commande de vérif) + `fix_hint`, plus des gardes optionnelles
-  `requires_files[]` / `requires_cmds[]` : si un prérequis manque, le check est **sauté
-  silencieusement** (un prérequis absent = « ne peut pas tourner », PAS « dérive »).
-
-Résolution du `scan_scope` : env `GUARDRAILS_SCOPE` (tests) > `precheck.scan_scope` du profil >
-`scan_scope` du marqueur > défaut `diff`.
-
-Override par dépôt : placer un profil dans `<repo>/.guardrails.d/<nom>.json` (prioritaire
-sur la bibliothèque partagée `profiles/`).
+Un profil déclare jusqu'à trois blocs : `precheck` (`trigger`, `include`, `exclude`, `rules[]`,
+`scan_scope`), `session_review` (`when` + `dispatch[]`), `policy_drift` (`check_cmd`, `requires_*`,
+`fix_hint`). Résolution du scope : env `GUARDRAILS_SCOPE` > profil > marqueur > défaut `diff`.
 
 ## Vérification
-
 ```bash
-bash test_guardrails.sh      # 17 assertions, exit 0 = OK
+bash test_guardrails.sh   # 21 assertions (H1–H9) — vérifié le 2026-08-01
 ```
+Couvre : déclenchement (H1), silence hors-trigger (H2), **no-op sans marqueur (H3)**, code propre
+(H4), exclusion des tests (H5), dispatch (H6), portabilité `secrets` (H7), skip prérequis (H8),
+override de scope (H9).
 
-Couvre : déclenchement quant sur motifs (H1), silence hors-trigger (H2), **no-op sans marqueur
-(H3, le correctif clé)**, silence sur code propre (H4), exclusion des tests (H5), dispatch de
-revue (H6), et **portabilité** via le profil `secrets` dans un autre dépôt (H7).
+## Limites assumées
+- `session_review` imprime la checklist **inconditionnellement** (le champ `when` est documentaire).
+- Le matching de `trigger` est un glob simple (rate `cd x && pytest`).
+- Le profil `secrets` est une **démonstration**, pas un scanner vérifié (préférer gitleaks/trufflehog en `check_cmd`).
 
-## Limites assumées (prototype)
+## Gouvernance
+Licence [`LICENSE`](LICENSE) (MIT) · versions [`CHANGELOG.md`](CHANGELOG.md) ·
+[`CONTRIBUTING.md`](CONTRIBUTING.md) · [`SECURITY.md`](SECURITY.md) ·
+décision : `claude-automation-setup/docs/adr/0003-generalized-guardrails.md`.
 
-- `session_review` imprime la checklist des profils actifs **inconditionnellement** ; le champ
-  `when` est documentaire (détecter « ce qui a été touché » demanderait de parser le transcript).
-- `scan_scope: repo` (défaut du profil quant) attrape les problèmes préexistants mais peut être
-  bruyant sur un très gros dépôt ; `diff` est plus léger au prix de rater un fichier inchangé.
-- Le matching de `trigger` est un glob simple sur la commande : il rate les formes composées
-  (`cd x && pytest`, `python -m pytest`). À élargir par profil si besoin.
-- `precheck` sans filtre `if` s'exécute à chaque commande Bash : le fast-path (marche
-  filesystem, sans `git`) sort en quelques stats quand aucun marqueur n'est présent.
-- Le profil `secrets` est une **démonstration** de portabilité, pas un scanner vérifié :
-  pour de la détection de secrets sérieuse, préférer un outil dédié (gitleaks, trufflehog)
-  branché comme `check_cmd`.
-- Statut : **acté** — voir `docs/adr/0003-generalized-guardrails.md` (dans claude-automation-setup).
+---
+*Conforme au standard AUDIT-DOC-token-economy v1.0. Un fait = un foyer.*
