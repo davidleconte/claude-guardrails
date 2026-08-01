@@ -2,7 +2,7 @@
 
 **Projet mono-mainteneur.** Il n'y a pas d'équipe ni de processus de revue formel : inutile de
 prétendre le contraire. Proposez un changement par patch ou branche, ou contactez le mainteneur —
-David Leconte, [linkedin.com/in/davidleconte](https://www.linkedin.com/in/davidleconte).
+David Leconte, [github.com/davidleconte](https://github.com/davidleconte) · [linkedin.com/in/davidleconte](https://www.linkedin.com/in/davidleconte).
 
 ## Principes non négociables (ceux-là, oui)
 

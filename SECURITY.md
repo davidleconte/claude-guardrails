@@ -10,7 +10,7 @@ puis purger l'historique.
 
 Projet **mono-mainteneur, sans engagement de délai** (pas de SLA de correction : ce serait fictif).
 Signalez en privé au mainteneur — David Leconte,
-[linkedin.com/in/davidleconte](https://www.linkedin.com/in/davidleconte) — de préférence avant
+[github.com/davidleconte](https://github.com/davidleconte) · [linkedin.com/in/davidleconte](https://www.linkedin.com/in/davidleconte) — de préférence avant
 toute divulgation publique.
 
 ## Risque connu (écosystème)

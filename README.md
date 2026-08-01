@@ -6,7 +6,7 @@
 > **Un moteur unique de gouvernance de session, piloté par des profils déclaratifs et activé par contexte de dépôt.**
 > Tous les hooks sont *advisory et non-bloquants* (`exit 0`) ; l'enforcement dur reste au push-time.
 
-**Auteur & mainteneur :** David Leconte — [linkedin.com/in/davidleconte](https://www.linkedin.com/in/davidleconte)
+**Auteur & mainteneur :** David Leconte — [github.com/davidleconte](https://github.com/davidleconte) · [linkedin.com/in/davidleconte](https://www.linkedin.com/in/davidleconte)
 **Statut :** prototype acté · **Version :** 0.1.0
 
 ## Sommaire
