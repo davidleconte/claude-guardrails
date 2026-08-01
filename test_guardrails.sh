@@ -65,6 +65,28 @@ ck "warns on sk- key"      'printf "%s" "$out" | grep -q "sk-… en clair"'
 ck "quiet on non-commit cmd" '[ -z "$(printf "%s" "{}" | GUARDRAILS_REPO="$S" GUARDRAILS_CMD="ls" python3 "$ENGINE" precheck 2>&1 1>/dev/null)" ]'
 ck "exits 0" "[ $rc -eq 0 ]"
 
+echo "  H8 · policy-drift SKIPS quietly when a prerequisite is missing (no false drift)"
+D="$TMP/drift"; mkrepo "$D"
+printf '{"profiles":["driftx"],"scan_scope":"repo"}\n' > "$D/.guardrails.json"
+mkdir -p "$D/.guardrails.d"
+# check_cmd always fails (returns 1); required file is absent → must stay SILENT
+printf '{"policy_drift":{"check_cmd":"false","requires_files":["policy.txt"],"fix_hint":"x"}}\n' > "$D/.guardrails.d/driftx.json"
+out="$(printf '{}' | GUARDRAILS_REPO="$D" python3 "$ENGINE" policy-drift 2>&1 1>/dev/null)"
+ck "no false drift when required file missing" '! printf "%s" "$out" | grep -q "dérive"'
+# now the prerequisite exists → the failing check SHOULD surface as drift
+printf 'present\n' > "$D/policy.txt"
+out="$(printf '{}' | GUARDRAILS_REPO="$D" python3 "$ENGINE" policy-drift 2>&1 1>/dev/null)"
+ck "warns on real drift once prerequisite present" 'printf "%s" "$out" | grep -q "dérive"'
+
+echo "  H9 · quant profile FORCES scan_scope=repo even if the marker says diff"
+P="$TMP/scope"; mkrepo "$P"
+printf '{"profiles":["quant"],"scan_scope":"diff"}\n' > "$P/.guardrails.json"
+printf 'X = scaler.fit_transform(df)\n' > "$P/mod.py"
+( cd "$P" && git add -A && git commit -q -m base )   # committed & unchanged: diff scope would miss it
+out="$(printf '{}' | GUARDRAILS_REPO="$P" GUARDRAILS_CMD="pytest" python3 "$ENGINE" precheck 2>&1 1>/dev/null)"
+ck "profile scope override catches a committed (unchanged) leak" 'printf "%s" "$out" | grep -q "fit_transform"'
+ck "output reports scope=repo" 'printf "%s" "$out" | grep -q "scope=repo"'
+
 echo ""
 if [ "$fail" = 0 ]; then echo "  ALL GUARDRAILS TESTS PASSED ✓"; else echo "  GUARDRAILS TESTS FAILED ✗"; fi
 exit $fail

@@ -49,9 +49,16 @@ guardrails/
 Un profil déclare jusqu'à trois blocs :
 
 - `precheck` — `trigger` (glob sur la commande, ex. `pytest*`, `git commit*`), `include`
-  (globs de fichiers), `exclude` (regex de chemins), `rules[]` = `{pattern, label, severity}`.
+  (globs de fichiers), `exclude` (regex de chemins), `rules[]` = `{pattern, label, severity}`,
+  et un `scan_scope` optionnel (`repo` | `diff`) qui **prime sur le marqueur** — utile quand
+  une discipline doit balayer tout l'arbre (ex. quant : `repo`, comme le `tier1-gate` d'origine).
 - `session_review` — `when` (rappel) + `dispatch[]` = `{agent, prompt}` (non-spawning : imprime).
-- `policy_drift` — `check_cmd` (commande de vérif) + `fix_hint`.
+- `policy_drift` — `check_cmd` (commande de vérif) + `fix_hint`, plus des gardes optionnelles
+  `requires_files[]` / `requires_cmds[]` : si un prérequis manque, le check est **sauté
+  silencieusement** (un prérequis absent = « ne peut pas tourner », PAS « dérive »).
+
+Résolution du `scan_scope` : env `GUARDRAILS_SCOPE` (tests) > `precheck.scan_scope` du profil >
+`scan_scope` du marqueur > défaut `diff`.
 
 Override par dépôt : placer un profil dans `<repo>/.guardrails.d/<nom>.json` (prioritaire
 sur la bibliothèque partagée `profiles/`).
@@ -70,6 +77,13 @@ revue (H6), et **portabilité** via le profil `secrets` dans un autre dépôt (H
 
 - `session_review` imprime la checklist des profils actifs **inconditionnellement** ; le champ
   `when` est documentaire (détecter « ce qui a été touché » demanderait de parser le transcript).
-- `precheck` en `scan_scope: repo` peut être bruyant sur un gros dépôt → préférer `diff`.
-- Parsing regex : motifs à calibrer par profil (sévérité `low` pour les incertains).
-- Statut : **proposé**. Une fois validé en usage, promouvoir la décision en `docs/adr/0003`.
+- `scan_scope: repo` (défaut du profil quant) attrape les problèmes préexistants mais peut être
+  bruyant sur un très gros dépôt ; `diff` est plus léger au prix de rater un fichier inchangé.
+- Le matching de `trigger` est un glob simple sur la commande : il rate les formes composées
+  (`cd x && pytest`, `python -m pytest`). À élargir par profil si besoin.
+- `precheck` sans filtre `if` s'exécute à chaque commande Bash : le fast-path (marche
+  filesystem, sans `git`) sort en quelques stats quand aucun marqueur n'est présent.
+- Le profil `secrets` est une **démonstration** de portabilité, pas un scanner vérifié :
+  pour de la détection de secrets sérieuse, préférer un outil dédié (gitleaks, trufflehog)
+  branché comme `check_cmd`.
+- Statut : **acté** — voir `docs/adr/0003-generalized-guardrails.md` (dans claude-automation-setup).

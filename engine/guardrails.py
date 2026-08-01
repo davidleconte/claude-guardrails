@@ -8,10 +8,14 @@ Design invariants (inherited from the quant prototype it generalizes):
   - POLICY-AS-DATA: the domain logic lives in JSON profiles, not in this code.
 
 Subcommands (wired from thin bash hooks):
-  precheck        PreToolUse/Bash — scan changed files before a matched command
+  precheck        PreToolUse/Bash — scan files before a matched command
   session-review  SessionEnd      — print the governance checklist for active profiles
-  policy-drift    SessionEnd      — run each profile's drift check, warn on nonzero
+  policy-drift    SessionEnd      — run each profile's drift check, warn on real drift
   status          diagnostics     — show active profiles for the current repo
+
+Cheap fast-path: repo root and marker are found by a pure-Python walk up the
+tree (no `git` subprocess), so the common "no marker" case costs a few stats and
+exits. `git` is only invoked for `scan_scope: diff`, i.e. inside a governed repo.
 
 Test overrides (env): GUARDRAILS_REPO, GUARDRAILS_SCOPE, GUARDRAILS_CMD.
 """
@@ -21,20 +25,22 @@ import glob
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 
 
 def find_repo_root(start: str | None = None) -> str:
-    start = start or os.getcwd()
-    try:
-        out = subprocess.run(["git", "-C", start, "rev-parse", "--show-toplevel"],
-                             capture_output=True, text=True)
-        if out.returncode == 0 and out.stdout.strip():
-            return out.stdout.strip()
-    except Exception:
-        pass
-    return start
+    """Walk up for a `.git` dir. Pure filesystem — no `git` subprocess."""
+    origin = os.path.abspath(start or os.getcwd())
+    d = origin
+    while True:
+        if os.path.isdir(os.path.join(d, ".git")):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            return origin
+        d = parent
 
 
 def engine_dir() -> str:
@@ -96,7 +102,7 @@ def _candidate_files(repo: str, include, scope: str):
     if scope == "repo":
         for pat in include or ["*"]:
             files += glob.glob(os.path.join(repo, "**", pat), recursive=True)
-    else:  # "diff": only what changed (staged/unstaged/untracked)
+    else:  # "diff": only what changed (unstaged/staged/untracked)
         for args in (["diff", "--name-only", "HEAD"],
                      ["diff", "--name-only", "--cached"],
                      ["ls-files", "--others", "--exclude-standard"]):
@@ -126,7 +132,12 @@ def scan_files(repo: str, include, exclude, scope: str):
     return out
 
 
-def cmd_precheck(profs, repo, scope, command):
+def _resolve_scope(pc, marker_scope):
+    # precedence: env override (tests) > profile > marker > default.
+    return os.environ.get("GUARDRAILS_SCOPE") or pc.get("scan_scope") or marker_scope or "diff"
+
+
+def cmd_precheck(profs, repo, marker_scope, command):
     for p in profs:
         pc = p.get("precheck")
         if not pc:
@@ -134,6 +145,7 @@ def cmd_precheck(profs, repo, scope, command):
         trig = pc.get("trigger")
         if trig and not fnmatch.fnmatch(command.strip(), trig):
             continue
+        scope = _resolve_scope(pc, marker_scope)
         files = scan_files(repo, pc.get("include", []), pc.get("exclude", []), scope)
         hits = []
         for rule in pc.get("rules", []):
@@ -150,7 +162,7 @@ def cmd_precheck(profs, repo, scope, command):
                     continue
         if hits:
             hits.sort(key=lambda h: {"high": 0, "med": 1, "low": 2}.get(h[0], 1))
-            sys.stderr.write(f"  ── guardrails[{p['_name']}] · {len(hits)} signal(s) avant « {command.strip()} »\n")
+            sys.stderr.write(f"  ── guardrails[{p['_name']}] · {len(hits)} signal(s) avant « {command.strip()} » (scope={scope})\n")
             for sev, label, rel, ln, code in hits:
                 sys.stderr.write(f"    ⚠ [{sev}] {label}\n        {rel}:{ln}  {code}\n")
             sys.stderr.write("    → advisory : résous ou justifie avant de faire confiance (non bloquant).\n")
@@ -176,6 +188,12 @@ def cmd_policy_drift(profs, repo):
         pd = p.get("policy_drift")
         if not pd or not pd.get("check_cmd"):
             continue
+        # Guards: a missing prerequisite means "cannot run", NOT "drift". Skip
+        # quietly instead of emitting a false drift warning (regression fix).
+        missing = [f for f in pd.get("requires_files", []) if not os.path.exists(os.path.join(repo, f))]
+        missing += [c for c in pd.get("requires_cmds", []) if shutil.which(c) is None]
+        if missing:
+            continue
         try:
             out = subprocess.run(pd["check_cmd"], shell=True, cwd=repo, capture_output=True, text=True)
         except Exception:
@@ -198,13 +216,14 @@ def main():
     argv = sys.argv[1:]
     sub = argv[0] if argv else "status"
     repo = os.environ.get("GUARDRAILS_REPO") or find_repo_root()
-    event = drain_stdin()
     marker = load_marker(repo)
-    scope = os.environ.get("GUARDRAILS_SCOPE") or (marker or {}).get("scan_scope", "diff")
     profs = active_profiles(repo, marker)
+    marker_scope = (marker or {}).get("scan_scope")
+    # Fast-path: nothing active and not a diagnostic → drain and exit cheaply.
+    event = drain_stdin()
     try:
         if sub == "precheck":
-            cmd_precheck(profs, repo, scope, os.environ.get("GUARDRAILS_CMD") or hook_command(event))
+            cmd_precheck(profs, repo, marker_scope, os.environ.get("GUARDRAILS_CMD") or hook_command(event))
         elif sub == "session-review":
             cmd_session_review(profs)
         elif sub == "policy-drift":

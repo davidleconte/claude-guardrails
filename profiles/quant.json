@@ -1,7 +1,8 @@
 {
-  "//": "Reproduces the existing quant-agents hooks as a declarative profile.",
+  "//": "Reproduces the existing quant-agents hooks as a declarative profile. scan_scope=repo (like the original tier1-gate, which scanned the whole tree every pytest — catches pre-existing leaks, not only changed files).",
   "precheck": {
     "trigger": "pytest*",
+    "scan_scope": "repo",
     "include": ["*.py"],
     "exclude": ["(^|/)tests?/", "_test\\.py$", "(^|/)test_", "(^|/)fixtures?/", "(^|/)\\.venv/", "site-packages/"],
     "rules": [
@@ -19,6 +20,8 @@
   },
   "policy_drift": {
     "check_cmd": "node tools/apply-tiers.mjs --check",
+    "requires_cmds": ["node"],
+    "requires_files": ["tools/apply-tiers.mjs"],
     "fix_hint": "make tiers-fix"
   }
 }

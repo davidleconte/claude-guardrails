@@ -1,5 +1,5 @@
 {
-  "//": "Merge these entries into ~/.claude/settings.json (adjust $GUARDRAILS_HOME). The generic precheck-gate has NO `if` filter — the engine matches each profile's trigger against the actual command — so it coexists with rtk hook claude and any tier1-gate in the same PreToolUse/Bash array. Set GUARDRAILS_HOME to the install dir of this prototype.",
+  "//": "Merge these entries into ~/.claude/settings.json. Paths assume the install location ~/Projects/claude-guardrails. The generic precheck-gate has NO `if` filter — the engine matches each profile's trigger against the actual command — so it coexists with `rtk hook claude` and any `tier1-gate` already in the same PreToolUse/Bash array (add, don't replace).",
   "hooks": {
     "PreToolUse": [
       {
@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$HOME/guardrails/hooks/precheck-gate.sh\"",
+            "command": "\"$HOME/Projects/claude-guardrails/hooks/precheck-gate.sh\"",
             "timeout": 60
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$HOME/guardrails/hooks/session-review.sh\"",
+            "command": "\"$HOME/Projects/claude-guardrails/hooks/session-review.sh\"",
             "timeout": 30
           }
         ]
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$HOME/guardrails/hooks/policy-drift.sh\"",
+            "command": "\"$HOME/Projects/claude-guardrails/hooks/policy-drift.sh\"",
             "timeout": 30
           }
         ]
