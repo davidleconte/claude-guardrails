@@ -9,6 +9,8 @@
 **Auteur & mainteneur :** David Leconte — [github.com/davidleconte](https://github.com/davidleconte) · [linkedin.com/in/davidleconte](https://www.linkedin.com/in/davidleconte)
 **Statut :** prototype acté · **Version :** 0.1.0
 
+> *Projet personnel de David Leconte. Non affilié à, ni endossé par, un employeur.*
+
 ## Sommaire
 [Pourquoi](#pourquoi) · [Quickstart](#quickstart) · [Principe](#principe) · [Structure](#structure) · [Profils](#profils) · [Vérification](#vérification) · [Limites](#limites-assumées) · [Gouvernance](#gouvernance)
 
