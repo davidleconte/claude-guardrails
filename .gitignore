@@ -1,3 +1,9 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# bruit de plateforme et sauvegardes horodatees (jamais versionnees)
+*.bak-*
+
+# digests de session : ne doivent jamais atteindre un depot publie (garde pubguard)
+.sessions/
